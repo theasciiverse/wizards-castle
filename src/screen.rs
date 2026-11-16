@@ -14,6 +14,7 @@
 
 use std::cell::RefCell;
 
+use ratatui::crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers};
 use ratatui::layout::Position;
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::{DefaultTerminal, Frame};
@@ -42,6 +43,15 @@ pub const COLOR_BLUE: i16 = 4;
 pub const COLOR_MAGENTA: i16 = 5;
 pub const COLOR_CYAN: i16 = 6;
 pub const COLOR_WHITE: i16 = 7;
+
+/// Key codes, as in curses
+pub const KEY_DOWN: i32 = 0o402;
+pub const KEY_UP: i32 = 0o403;
+pub const KEY_LEFT: i32 = 0o404;
+pub const KEY_RIGHT: i32 = 0o405;
+pub const KEY_BACKSPACE: i32 = 0o407;
+/// Any other special key (function keys, Home, ...)
+pub const KEY_OTHER: i32 = 0o777;
 
 /// The size of the screen the game draws on
 const SCREEN_LINES: i32 = 25;
@@ -573,4 +583,87 @@ pub fn getmaxx(w: WINDOW) -> i32 {
 /// Draw the screen now
 pub fn doupdate() {
     with(|s| s.draw());
+}
+
+/// A key event as a curses key code, or None for keys to ignore
+fn key_code(ev: &Event) -> Option<i32> {
+    let Event::Key(key) = ev else {
+        return None;
+    };
+
+    if key.kind == KeyEventKind::Release {
+        return None;
+    }
+
+    let code = match key.code {
+        KeyCode::Char('c') if key.modifiers.contains(KeyModifiers::CONTROL) => {
+            // Ctrl-C quits at once, as it did under curses
+            endwin();
+            std::process::exit(0);
+        }
+        KeyCode::Char(c) if key.modifiers.contains(KeyModifiers::CONTROL) => {
+            // A control character, as a terminal sends it
+            (c.to_ascii_lowercase() as i32) & 0x1f
+        }
+        KeyCode::Char(c) => c as i32,
+        KeyCode::Enter => '\n' as i32,
+        KeyCode::Tab => '\t' as i32,
+        KeyCode::Esc => 27,
+        KeyCode::Backspace => KEY_BACKSPACE,
+        KeyCode::Up => KEY_UP,
+        KeyCode::Down => KEY_DOWN,
+        KeyCode::Left => KEY_LEFT,
+        KeyCode::Right => KEY_RIGHT,
+        KeyCode::Modifier(_) | KeyCode::CapsLock | KeyCode::NumLock | KeyCode::ScrollLock => {
+            return None;
+        }
+        _ => KEY_OTHER,
+    };
+
+    Some(code)
+}
+
+/// Draw the screen and wait for a key
+pub fn getch() -> i32 {
+    loop {
+        doupdate();
+
+        let Ok(ev) = event::read() else {
+            continue;
+        };
+
+        if let Some(code) = key_code(&ev) {
+            return code;
+        }
+    }
+}
+
+/// Read a line of up to `n` characters, echoed at the window's cursor
+pub fn wgetnstr(w: WINDOW, s: &mut String, n: i32) -> i32 {
+    s.clear();
+
+    loop {
+        with(|sc| sc.focus = Some(w.0));
+
+        match getch() {
+            10 | 13 => break,
+            KEY_BACKSPACE | 8 | 127 => {
+                if s.pop().is_some() {
+                    with(|sc| {
+                        let win = sc.win_mut(w);
+                        win.curx -= 1;
+                        let (y, x) = (win.cury, win.curx);
+                        sc.put(w, y, x, BLANK);
+                    });
+                }
+            }
+            c if (32..127).contains(&c) && (s.len() as i32) < n => {
+                s.push(c as u8 as char);
+                waddch(w, c as chtype);
+            }
+            _ => (),
+        }
+    }
+
+    0
 }
