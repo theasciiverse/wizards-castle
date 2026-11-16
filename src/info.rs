@@ -13,7 +13,7 @@ impl G {
         self.wprintw_center(w, "Originally written by Joseph R. Power\n");
         self.wprintw_center(w, "Recreational Computing Magazine, July 1980\n\n");
 
-        self.wprintw_center(w, "Rust/ncurses port released under the MIT license\n");
+        self.wprintw_center(w, "Rust/Ratatui port released under the MIT license\n");
         self.wprintw_center(w, "Brian \"Beej Jorgensen\" Hall <beej@beej.us>\n\n");
 
         self.wprintw_center(

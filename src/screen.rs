@@ -10,9 +10,9 @@
 //! The game draws on a fixed 80x25 screen (`LINES()` x `COLS()`), which
 //! sits in the middle of the terminal and follows it when it is resized.
 //! `on_resize()` lets the game rearrange its windows for small terminals.
-#![allow(dead_code)]
 #![allow(non_snake_case)]
 #![allow(non_camel_case_types)]
+#![allow(clippy::upper_case_acronyms)]
 
 use std::cell::RefCell;
 
@@ -278,7 +278,10 @@ impl Screen {
         }
 
         if area.width < MIN_COLS || area.height < MIN_LINES {
-            let msg = format!(" Please make the terminal at least {}x{} ", MIN_COLS, MIN_LINES);
+            let msg = format!(
+                " Please make the terminal at least {}x{} ",
+                MIN_COLS, MIN_LINES
+            );
             let x = (area.width as i32 - msg.len() as i32).max(0) / 2;
             let y = area.height.saturating_sub(1);
             let style = Style::default().add_modifier(Modifier::REVERSED);

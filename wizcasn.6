@@ -337,11 +337,15 @@ as a synonym for
 .BR [R] ead
 as a synonym for
 .BR [O] "pening a book"
-.SH BUGS
-Resizing the terminal window does bad things, up to and including a
-panic.
+.SH ENVIRONMENT
+.TP
+.B NO_COLOR
+If set and not empty, the game is drawn without colors.
+.SH NOTES
+The game needs a terminal of at least 80x24. It sits in the middle of
+a bigger terminal, and follows the terminal when it is resized.
 
-Probably doesn't build on Windows outside of Cygwin or WSL.
+It runs on Linux, macOS, and Windows.
 .SH AUTHOR
 Wizard's Castle was written in the late 1970s by Joseph R. Power. It was
 published in Recreational Computing Magazine in July 1980 for the Exidy
