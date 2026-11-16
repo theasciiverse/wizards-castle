@@ -20,6 +20,8 @@ use ratatui::crossterm::event::{self, Event, KeyCode, KeyEventKind, KeyModifiers
 use ratatui::layout::Position;
 use ratatui::style::{Color, Modifier, Style};
 use ratatui::{DefaultTerminal, Frame};
+#[cfg(test)]
+use ratatui::{Terminal, backend::TestBackend, buffer::Buffer};
 
 /// Attribute bits plus a color pair number, as in curses
 pub type attr_t = u32;
@@ -105,8 +107,19 @@ struct Screen {
     /// The window whose cursor is the screen cursor
     focus: Option<usize>,
     z: u64,
-    term: Option<DefaultTerminal>,
+    term: Option<Term>,
 }
+
+/// Where the screen is drawn and the keys come from
+enum Term {
+    Real(DefaultTerminal),
+    /// A terminal in memory, with keys from a function that sees the screen
+    #[cfg(test)]
+    Test(Terminal<TestBackend>, TestInput),
+}
+
+#[cfg(test)]
+type TestInput = Box<dyn FnMut(&Buffer) -> Event>;
 
 /// Called with the terminal's lines and columns when its size changes
 type ResizeHook = Box<dyn Fn(i32, i32)>;
@@ -322,7 +335,15 @@ impl Screen {
     /// Draw the screen
     fn draw(&mut self) {
         if let Some(mut term) = self.term.take() {
-            let _ = term.draw(|frame| self.compose(frame));
+            match &mut term {
+                Term::Real(t) => {
+                    let _ = t.draw(|frame| self.compose(frame));
+                }
+                #[cfg(test)]
+                Term::Test(t, _) => {
+                    let _ = t.draw(|frame| self.compose(frame));
+                }
+            }
             self.term = Some(term);
         }
     }
@@ -352,8 +373,18 @@ fn color(c: i16, bright: bool) -> Color {
 
 /// Start up the screen: raw mode, the alternate screen, no cursor
 pub fn initscr() {
-    let term = ratatui::init();
+    start(Term::Real(ratatui::init()));
+}
 
+/// Start up a screen in memory, `cols` x `lines`, for tests: `input` is
+/// called for each event getch() waits for, with the screen as drawn
+#[cfg(test)]
+pub fn initscr_test(cols: u16, lines: u16, input: impl FnMut(&Buffer) -> Event + 'static) {
+    let term = Terminal::new(TestBackend::new(cols, lines)).unwrap();
+    start(Term::Test(term, Box::new(input)));
+}
+
+fn start(term: Term) {
     SCREEN.with(|s| {
         *s.borrow_mut() = Some(Screen {
             wins: Vec::new(),
@@ -369,8 +400,15 @@ pub fn initscr() {
 
 /// Put the terminal back the way it was
 pub fn endwin() {
-    SCREEN.with(|s| *s.borrow_mut() = None);
-    ratatui::restore();
+    let screen = SCREEN.with(|s| s.borrow_mut().take());
+
+    if let Some(Screen {
+        term: Some(Term::Real(_)),
+        ..
+    }) = screen
+    {
+        ratatui::restore();
+    }
 }
 
 /// True if colors can be shown; `NO_COLOR` turns them off
@@ -654,8 +692,15 @@ fn key_code(ev: &Event) -> Option<i32> {
 pub fn on_resize(hook: impl Fn(i32, i32) + 'static) {
     RESIZE_HOOK.with(|h| *h.borrow_mut() = Some(Box::new(hook)));
 
-    if let Ok((cols, lines)) = ratatui::crossterm::terminal::size() {
-        resized(lines, cols);
+    let size = with(|s| match s.term.as_ref() {
+        Some(Term::Real(t)) => t.size().ok(),
+        #[cfg(test)]
+        Some(Term::Test(t, _)) => t.size().ok(),
+        None => None,
+    });
+
+    if let Some(size) = size {
+        resized(size.height, size.width);
     }
 }
 
@@ -668,6 +713,29 @@ fn resized(lines: u16, cols: u16) {
     });
 }
 
+/// Wait for the next terminal event
+fn read_event() -> Option<Event> {
+    #[cfg(test)]
+    {
+        let ev = with(|s| match s.term.as_mut() {
+            Some(Term::Test(t, input)) => {
+                let ev = input(t.backend().buffer());
+                if let Event::Resize(cols, lines) = ev {
+                    t.backend_mut().resize(cols, lines);
+                }
+                Some(ev)
+            }
+            _ => None,
+        });
+
+        if ev.is_some() {
+            return ev;
+        }
+    }
+
+    event::read().ok()
+}
+
 /// Draw the screen and wait for a key
 ///
 /// A resize is not a key: the screen is laid out again and redrawn, and
@@ -676,7 +744,7 @@ pub fn getch() -> i32 {
     loop {
         doupdate();
 
-        let Ok(ev) = event::read() else {
+        let Some(ev) = read_event() else {
             continue;
         };
 

@@ -30,6 +30,8 @@ mod quit;
 mod screen;
 mod stat;
 mod teleport;
+#[cfg(test)]
+mod tests;
 mod vendor;
 mod win;
 
