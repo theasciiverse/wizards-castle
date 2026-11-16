@@ -27,6 +27,7 @@ mod log;
 mod map;
 mod names;
 mod quit;
+mod screen;
 mod stat;
 mod teleport;
 mod vendor;
