@@ -713,6 +713,15 @@ fn resized(lines: u16, cols: u16) {
     });
 }
 
+/// True on the in-memory test terminal
+fn testing() -> bool {
+    #[cfg(test)]
+    return with(|s| matches!(s.term, Some(Term::Test(..))));
+
+    #[cfg(not(test))]
+    false
+}
+
 /// Wait for the next terminal event
 fn read_event() -> Option<Event> {
     #[cfg(test)]
@@ -744,9 +753,20 @@ pub fn getch() -> i32 {
     loop {
         doupdate();
 
+        // With RUST_LOG=debug, wake up once a second for a snapshot
+        if !testing()
+            && crate::session_log::snapshots_enabled()
+            && matches!(event::poll(std::time::Duration::from_secs(1)), Ok(false))
+        {
+            crate::session_log::tick();
+            continue;
+        }
+
         let Some(ev) = read_event() else {
             continue;
         };
+
+        log::debug!("event {:?}", ev);
 
         if let Event::Resize(cols, lines) = ev {
             resized(lines, cols);

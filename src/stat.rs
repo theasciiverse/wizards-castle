@@ -22,12 +22,15 @@ pub enum StatMode {
 
 impl G {
     pub fn set_statmode(&mut self, mode: StatMode) {
+        log::debug!("statmode {:?}", mode);
         self.statmode = mode;
 
         self.update_stat();
     }
 
     pub fn update_stat(&self) {
+        self.update_snapshot();
+
         werase(self.statwin);
         let player_has_runestaff = self.game.player_has_runestaff();
         let player_has_orb_of_zot = self.game.player_has_orb_of_zot();

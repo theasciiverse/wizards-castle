@@ -28,6 +28,7 @@ mod map;
 mod names;
 mod quit;
 mod screen;
+mod session_log;
 mod stat;
 mod teleport;
 #[cfg(test)]
@@ -825,6 +826,7 @@ impl G {
         let mon = format!("{} {}", G::get_article(&mon_str), mon_str).to_uppercase();
 
         self.update_log_bad(&format!("You're facing {}!", mon));
+        ::log::info!("combat begins: {}", mon_str);
 
         while !done {
             //self.update_log(&format!(">> {:#?}", self.game.state()));
@@ -845,6 +847,13 @@ impl G {
         } // while !done
 
         self.set_statmode(StatMode::None);
+
+        ::log::info!(
+            "combat ends: {:?}, retreated={} bribed={}",
+            self.game.state(),
+            retreated,
+            bribed
+        );
 
         if bribed {
             self.update_log(&format!(
@@ -883,6 +892,10 @@ impl G {
             self.choose_weapon();
             self.choose_lamp();
             self.choose_flares();
+
+            self.update_snapshot();
+            session_log::tick();
+            ::log::info!("game begins");
 
             let mut automove = false;
 
@@ -1015,6 +1028,8 @@ impl G {
                 }
             } // while alive
 
+            ::log::info!("game ends: {:?}", self.game.state());
+
             if playing {
                 playing = self.game_summary();
             }
@@ -1069,6 +1084,8 @@ fn gather_options() -> Opts {
 
 /// Main
 fn main() {
+    session_log::init();
+
     let options = gather_options();
 
     initscr();

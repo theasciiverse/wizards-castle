@@ -29,6 +29,8 @@ impl G {
     }
 
     pub fn update_log_attr(&self, s: &str, attr: u32) {
+        log::info!("message: {}", s.trim_end());
+
         wattr_on(self.loginner, attr);
         let _ = waddstr(self.loginner, &format!("\n{}", s));
         wattr_off(self.loginner, attr);
