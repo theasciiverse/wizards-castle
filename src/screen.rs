@@ -7,7 +7,9 @@
 //! cells, and the visible windows are composed into one Ratatui frame,
 //! oldest refresh first, whenever the screen is drawn.
 //!
-//! The game draws on a fixed 80x25 screen (`LINES()` x `COLS()`).
+//! The game draws on a fixed 80x25 screen (`LINES()` x `COLS()`), which
+//! sits in the middle of the terminal and follows it when it is resized.
+//! `on_resize()` lets the game rearrange its windows for small terminals.
 #![allow(dead_code)]
 #![allow(non_snake_case)]
 #![allow(non_camel_case_types)]
@@ -57,6 +59,10 @@ pub const KEY_OTHER: i32 = 0o777;
 const SCREEN_LINES: i32 = 25;
 const SCREEN_COLS: i32 = 80;
 
+/// The smallest terminal the game is playable in
+const MIN_LINES: u16 = 24;
+const MIN_COLS: u16 = 80;
+
 /// Attribute bits for a color pair
 pub fn COLOR_PAIR(n: i16) -> attr_t {
     ((n as attr_t) << 8) & A_COLOR
@@ -102,8 +108,12 @@ struct Screen {
     term: Option<DefaultTerminal>,
 }
 
+/// Called with the terminal's lines and columns when its size changes
+type ResizeHook = Box<dyn Fn(i32, i32)>;
+
 thread_local! {
     static SCREEN: RefCell<Option<Screen>> = const { RefCell::new(None) };
+    static RESIZE_HOOK: RefCell<Option<ResizeHook>> = const { RefCell::new(None) };
 }
 
 /// Run a function on the screen
@@ -223,7 +233,11 @@ impl Screen {
     /// Draw the shown windows onto a frame
     fn compose(&self, frame: &mut Frame) {
         let area = frame.area();
-        let (oy, ox) = (0, 0);
+
+        // The game's screen sits in the middle of the terminal, or at the
+        // top left when the terminal is smaller
+        let oy = ((area.height as i32 - SCREEN_LINES) / 2).max(0);
+        let ox = ((area.width as i32 - SCREEN_COLS) / 2).max(0);
 
         let mut order: Vec<&Win> = self.wins.iter().flatten().filter(|w| w.shown).collect();
         order.sort_by_key(|w| w.z);
@@ -261,6 +275,16 @@ impl Screen {
             if sy >= 0 && sx >= 0 && sy < area.height as i32 && sx < area.width as i32 {
                 frame.set_cursor_position(Position::new(sx as u16, sy as u16));
             }
+        }
+
+        if area.width < MIN_COLS || area.height < MIN_LINES {
+            let msg = format!(" Please make the terminal at least {}x{} ", MIN_COLS, MIN_LINES);
+            let x = (area.width as i32 - msg.len() as i32).max(0) / 2;
+            let y = area.height.saturating_sub(1);
+            let style = Style::default().add_modifier(Modifier::REVERSED);
+            frame
+                .buffer_mut()
+                .set_stringn(x as u16, y, &msg, area.width as usize, style);
         }
     }
 
@@ -623,7 +647,28 @@ fn key_code(ev: &Event) -> Option<i32> {
     Some(code)
 }
 
+/// Set the function called when the terminal is resized, and call it now
+pub fn on_resize(hook: impl Fn(i32, i32) + 'static) {
+    RESIZE_HOOK.with(|h| *h.borrow_mut() = Some(Box::new(hook)));
+
+    if let Ok((cols, lines)) = ratatui::crossterm::terminal::size() {
+        resized(lines, cols);
+    }
+}
+
+/// Tell the game the terminal has a new size
+fn resized(lines: u16, cols: u16) {
+    RESIZE_HOOK.with(|h| {
+        if let Some(hook) = h.borrow().as_ref() {
+            hook(lines as i32, cols as i32);
+        }
+    });
+}
+
 /// Draw the screen and wait for a key
+///
+/// A resize is not a key: the screen is laid out again and redrawn, and
+/// getch() goes on waiting.
 pub fn getch() -> i32 {
     loop {
         doupdate();
@@ -631,6 +676,11 @@ pub fn getch() -> i32 {
         let Ok(ev) = event::read() else {
             continue;
         };
+
+        if let Event::Resize(cols, lines) = ev {
+            resized(lines, cols);
+            continue;
+        }
 
         if let Some(code) = key_code(&ev) {
             return code;

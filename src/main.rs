@@ -1077,6 +1077,14 @@ fn main() {
 
     let mut g = G::new(options);
 
+    // On a 24-line terminal the log window moves up a line, over the
+    // bottom borders of the map and status windows, so all of it shows
+    let logwin = g.logwin;
+    on_resize(move |lines, _cols| {
+        let y = if lines < LINES() { LINES() - 9 } else { 17 };
+        mvwin(logwin, y, 0);
+    });
+
     g.run();
 
     endwin();
