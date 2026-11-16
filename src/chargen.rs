@@ -1,5 +1,5 @@
 use crate::G;
-use ncurses::*;
+use crate::screen::*;
 
 use wizardscastle::armor::{Armor, ArmorType};
 use wizardscastle::player::{Gender, Race, Stat};
@@ -516,8 +516,6 @@ impl G {
             wrefresh(w);
             redrawwin(w);
 
-            nocbreak();
-            echo();
             G::show_cursor(true);
 
             wgetnstr(w, &mut input, 2);
@@ -525,8 +523,6 @@ impl G {
             input = input.trim().to_string();
 
             G::show_cursor(false);
-            noecho();
-            cbreak();
 
             if let Ok(num) = input.parse::<u32>() {
                 if num > gps {

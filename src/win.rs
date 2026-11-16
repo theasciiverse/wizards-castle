@@ -1,6 +1,6 @@
 /// Windows-related functions
 use crate::G;
-use ncurses::*;
+use crate::screen::*;
 
 use std::collections::HashMap;
 

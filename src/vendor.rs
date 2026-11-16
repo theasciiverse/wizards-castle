@@ -1,5 +1,5 @@
 use crate::G;
-use ncurses::*;
+use crate::screen::*;
 
 use wizardscastle::armor::{Armor, ArmorType};
 use wizardscastle::game::Game;

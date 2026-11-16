@@ -1,4 +1,4 @@
-use ncurses::*;
+use crate::screen::*;
 use std::char;
 use std::collections::HashMap;
 use std::env;
@@ -430,8 +430,6 @@ impl G {
 
             Err(err) => panic!("{:?}", err),
         }
-
-        println!();
     }
 
     /// Open a book
@@ -864,8 +862,6 @@ impl G {
     /// Main game loop
     fn run(&mut self) {
         G::show_cursor(false);
-        cbreak();
-        noecho();
 
         self.intro();
 
@@ -1022,8 +1018,6 @@ impl G {
             }
         } // while playing
 
-        nocbreak();
-        echo();
         G::show_cursor(true);
     }
 
@@ -1080,12 +1074,6 @@ fn main() {
     if !options.force_bw && has_colors() {
         start_color();
     }
-
-    keypad(stdscr(), true);
-
-    set_escdelay(100);
-
-    refresh(); // If we don't do this first, windows don't show up
 
     let mut g = G::new(options);
 

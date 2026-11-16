@@ -1,5 +1,5 @@
 use crate::G;
-use ncurses::*;
+use crate::screen::*;
 
 impl G {
     pub fn show_inventory(&self) {

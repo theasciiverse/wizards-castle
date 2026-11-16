@@ -10,6 +10,5 @@ cheat = []
 [dependencies]
 wizardscastle = { git = "https://github.com/beejjorgensen/Wizards-Castle-Rust", tag = "v0.9.8"}
 #wizardscastle = { path = "../Wizards-Castle-Rust/" }
-ncurses = "6.0.1"
 ratatui = "0.30"
 rand = "0.10.0"

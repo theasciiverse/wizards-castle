@@ -733,17 +733,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ncurses"
-version = "6.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fbd71afa95710e841d173521e8483e764004eb332bdf47bd01d00f568688027f"
-dependencies = [
- "cc",
- "libc",
- "pkg-config",
-]
-
-[[package]]
 name = "nix"
 version = "0.29.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -997,12 +986,6 @@ name = "pin-project-lite"
 version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd"
-
-[[package]]
-name = "pkg-config"
-version = "0.3.32"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7edddbd0b52d732b21ad9a5fab5c704c14cd949e5e9a1ec5929a24fded1b904c"
 
 [[package]]
 name = "portable-atomic"
@@ -1991,7 +1974,6 @@ dependencies = [
 name = "wizards_castle_ncurses"
 version = "1.0.11"
 dependencies = [
- "ncurses",
  "rand 0.10.0",
  "ratatui",
  "wizardscastle",
